@@ -17,15 +17,37 @@ SCAN_DATE=$(date "+%Y-%m-%d %H:%M:%S")
 
 # Define file paths
 OPEN_PORTS_FILE="$REPORT_DIR/${SAFE_IP}_open_ports.txt"
+NMAP_XML_FILE="$REPORT_DIR/${SAFE_IP}_scan.xml"
+NMAP_JSON_FILE="$REPORT_DIR/${SAFE_IP}_scan.json"
 SSH_BANNER_FILE="$REPORT_DIR/${SAFE_IP}_ssh_banner.txt"
 HTTP_FILE="$REPORT_DIR/${SAFE_IP}_http"
 RDP_SCREENSHOT="$REPORT_DIR/${SAFE_IP}_rdp_screenshot.bmp"
 
 echo "[+] Scanning $TARGET_IP for open ports..."
 echo "Scan Date: $SCAN_DATE" > "$OPEN_PORTS_FILE"
-nmap -p- --min-rate=1000 -T4 "$TARGET_IP" | tee -a "$OPEN_PORTS_FILE"
 
-# Collect evidence
+# Step 1: Check if ICMP is blocked
+echo "[+] Checking if ICMP (ping) is allowed..."
+ping -c 1 -W 1 "$TARGET_IP" >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo "[!] ICMP is blocked, switching to No Ping mode (-Pn)"
+    NMAP_FLAGS="-Pn"
+else
+    echo "[+] ICMP is allowed, using standard scanning."
+    NMAP_FLAGS=""
+fi
+
+# Step 2: Run Nmap scan
+nmap $NMAP_FLAGS -p- -sV -A --min-rate=1000 -T4 -oN "$OPEN_PORTS_FILE" -oX "$NMAP_XML_FILE" "$TARGET_IP"
+echo "[+] Nmap scan complete. Results saved in $OPEN_PORTS_FILE and $NMAP_XML_FILE"
+
+# Step 3: Convert XML to JSON (optional, requires `xsltproc` or similar tool)
+if command -v xsltproc >/dev/null 2>&1; then
+    xsltproc /usr/share/nmap/nmap.xsl "$NMAP_XML_FILE" > "$NMAP_JSON_FILE"
+    echo "[+] Converted scan results to JSON: $NMAP_JSON_FILE"
+fi
+
+# Step 4: Collect evidence for known services
 for port in $(grep "open" "$OPEN_PORTS_FILE" | awk '{print $1}' | tr -d '/tcp'); do
     case "$port" in
         22)
@@ -50,4 +72,4 @@ for port in $(grep "open" "$OPEN_PORTS_FILE" | awk '{print $1}' | tr -d '/tcp');
     esac
 done
 
-echo "[+] Evidence collection complete. Check the output files in $REPORT_DIR."
+echo "[+] Evidence collection complete. Check output files in $REPORT_DIR."
