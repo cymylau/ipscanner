@@ -14,9 +14,8 @@ LABEL org.opencontainers.image.source="https://github.com/cymylau/ipscanner/dock
 
 # Set environment to avoid interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
-ENV UDEV=off
 
-# Prevent udev from running inside the container
+# Prevent udev from running unnecessary services inside the container
 RUN echo '#!/bin/sh\nexit 0' > /usr/sbin/policy-rc.d && chmod +x /usr/sbin/policy-rc.d
 
 # Install required dependencies
@@ -37,8 +36,11 @@ RUN echo "en_GB.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen && \
     update-locale LANG=en_GB.UTF-8
 
-# Set working directory
+# Set working directory for the script
 WORKDIR /app
+
+# Create a separate directory for reports
+RUN mkdir -p /app/reports
 
 # Copy scan script
 COPY scan.sh /app/scan.sh
@@ -48,6 +50,7 @@ RUN chmod +x /app/scan.sh
 
 # Set environment variable with a default (override at runtime)
 ENV TARGET_IP=127.0.0.1
+ENV REPORT_DIR=/app/reports
 
 # Define the entrypoint
 ENTRYPOINT ["/app/scan.sh"]
