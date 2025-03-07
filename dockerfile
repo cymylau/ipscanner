@@ -14,9 +14,13 @@ LABEL org.opencontainers.image.source="https://github.com/cymylau/ipscanner/dock
 
 # Set environment to avoid interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
+ENV UDEV=off
+
+# Prevent udev from running inside the container
+RUN echo '#!/bin/sh\nexit 0' > /usr/sbin/policy-rc.d && chmod +x /usr/sbin/policy-rc.d
 
 # Install required dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     nmap \
     curl \
     wget \
@@ -26,7 +30,7 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     locales \
     keyboard-configuration \
-    && apt-get clean
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Set UK locale and keyboard layout
 RUN echo "en_GB.UTF-8 UTF-8" > /etc/locale.gen && \
