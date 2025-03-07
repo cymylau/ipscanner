@@ -2,38 +2,44 @@
 
 # Ensure the IP is provided
 if [ -z "$TARGET_IP" ]; then
-    echo "Error: TARGET_IP environment variable not set."
+    echo "Error: TARGET_IP environment variable not set." | tee /app/error.log
     exit 1
 fi
 
+# Format filename-friendly IP (replace dots with underscores)
+SAFE_IP=$(echo "$TARGET_IP" | tr '.' '_')
+
+# Get current date and time
+SCAN_DATE=$(date "+%Y-%m-%d %H:%M:%S")
+
+# Define file paths
+OPEN_PORTS_FILE="/app/${SAFE_IP}_open_ports.txt"
+SSH_BANNER_FILE="/app/${SAFE_IP}_ssh_banner.txt"
+HTTP_FILE="/app/${SAFE_IP}_http"
+RDP_SCREENSHOT="/app/${SAFE_IP}_rdp_screenshot.bmp"
+
 echo "[+] Scanning $TARGET_IP for open ports..."
-open_ports=$(nmap -p- --min-rate=1000 -T4 "$TARGET_IP" | grep "open" | awk '{print $1}' | tr -d '/tcp')
+echo "Scan Date: $SCAN_DATE" > "$OPEN_PORTS_FILE"
+nmap -p- --min-rate=1000 -T4 "$TARGET_IP" | tee -a "$OPEN_PORTS_FILE"
 
-if [ -z "$open_ports" ]; then
-    echo "No open ports found on $TARGET_IP."
-    exit 0
-fi
-
-echo "[+] Found open ports: $open_ports"
-
-# Evidence gathering for well-known services
-for port in $open_ports; do
+# Collect evidence
+for port in $(grep "open" "$OPEN_PORTS_FILE" | awk '{print $1}' | tr -d '/tcp'); do
     case "$port" in
         22)
             echo "[+] SSH found on port $port"
-            echo "Attempting to gather SSH banner..."
-            nc -v -w 2 "$TARGET_IP" 22 | tee ssh_banner.txt
+            echo "Scan Date: $SCAN_DATE" > "$SSH_BANNER_FILE"
+            nc -v -w 2 "$TARGET_IP" 22 | tee -a "$SSH_BANNER_FILE"
             ;;
         80|443)
             echo "[+] HTTP/HTTPS found on port $port"
-            echo "Fetching webpage..."
-            wget -qO- "http://$TARGET_IP" > "http_${port}.html"
-            echo "Capturing screenshot (Eyewitness not available on Alpine)"
+            HTTP_OUTPUT="${HTTP_FILE}_${port}.html"
+            echo "Scan Date: $SCAN_DATE" > "$HTTP_OUTPUT"
+            wget -qO- "http://$TARGET_IP" >> "$HTTP_OUTPUT"
             ;;
         3389)
             echo "[+] RDP found on port $port"
-            echo "Capturing RDP Screenshot..."
-            xfreerdp /v:"$TARGET_IP" /u:guest /p:password /cert-ignore /bitmap-cache /app/evidence/rdp_screenshot.bmp
+            echo "Scan Date: $SCAN_DATE" > "$RDP_SCREENSHOT.log"
+            xfreerdp /v:"$TARGET_IP" /u:guest /p:password /cert-ignore /bitmap-cache "$RDP_SCREENSHOT"
             ;;
         *)
             echo "[+] Port $port is open but not a well-known service."
@@ -41,4 +47,4 @@ for port in $open_ports; do
     esac
 done
 
-echo "[+] Evidence collection complete. Check the output files."
+echo "[+] Evidence collection complete. Check the output files in /app."
