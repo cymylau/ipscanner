@@ -12,15 +12,32 @@ LABEL org.opencontainers.image.url="https://github.com/cymylau/ipscanner"
 LABEL org.opencontainers.image.documentation="https://github.com/cymylau/ipscanner/readme.md"
 LABEL org.opencontainers.image.source="https://github.com/cymylau/ipscanner/dockerfile"
 
-# Install required dependencies
-RUN apt update && apt install -y \
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    python3 \
+    python3-pip \
+    python3-dev \
+    xvfb \
+    cmake \
+    firefox-esr \
     nmap \
     curl \
     wget \
     netcat \
-    eyewitness \
     xrdp \
-    && apt clean
+    && apt-get clean
+
+# Clone the EyeWitness repository
+RUN git clone https://github.com/RedSiege/EyeWitness.git /opt/EyeWitness
+
+# Run EyeWitness setup script
+RUN cd /opt/EyeWitness/Python/setup && \
+    chmod +x setup.sh && \
+    ./setup.sh
+
+# Add EyeWitness to PATH
+ENV PATH="/opt/EyeWitness/Python:${PATH}"
 
 # Set working directory
 WORKDIR /app
@@ -34,5 +51,5 @@ RUN chmod +x /app/scan.sh
 # Set environment variable with a default (override at runtime)
 ENV TARGET_IP=127.0.0.1
 
-# Define the entrypoint
+# Set the entrypoint
 ENTRYPOINT ["/app/scan.sh"]
