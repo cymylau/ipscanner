@@ -2,9 +2,12 @@
 
 # Ensure the IP is provided
 if [ -z "$TARGET_IP" ]; then
-    echo "Error: TARGET_IP environment variable not set." | tee /app/error.log
+    echo "Error: TARGET_IP environment variable not set." | tee /app/reports/error.log
     exit 1
 fi
+
+# Ensure the report directory exists
+mkdir -p "$REPORT_DIR"
 
 # Format filename-friendly IP (replace dots with underscores)
 SAFE_IP=$(echo "$TARGET_IP" | tr '.' '_')
@@ -13,10 +16,10 @@ SAFE_IP=$(echo "$TARGET_IP" | tr '.' '_')
 SCAN_DATE=$(date "+%Y-%m-%d %H:%M:%S")
 
 # Define file paths
-OPEN_PORTS_FILE="/app/${SAFE_IP}_open_ports.txt"
-SSH_BANNER_FILE="/app/${SAFE_IP}_ssh_banner.txt"
-HTTP_FILE="/app/${SAFE_IP}_http"
-RDP_SCREENSHOT="/app/${SAFE_IP}_rdp_screenshot.bmp"
+OPEN_PORTS_FILE="$REPORT_DIR/${SAFE_IP}_open_ports.txt"
+SSH_BANNER_FILE="$REPORT_DIR/${SAFE_IP}_ssh_banner.txt"
+HTTP_FILE="$REPORT_DIR/${SAFE_IP}_http"
+RDP_SCREENSHOT="$REPORT_DIR/${SAFE_IP}_rdp_screenshot.bmp"
 
 echo "[+] Scanning $TARGET_IP for open ports..."
 echo "Scan Date: $SCAN_DATE" > "$OPEN_PORTS_FILE"
@@ -47,4 +50,4 @@ for port in $(grep "open" "$OPEN_PORTS_FILE" | awk '{print $1}' | tr -d '/tcp');
     esac
 done
 
-echo "[+] Evidence collection complete. Check the output files in /app."
+echo "[+] Evidence collection complete. Check the output files in $REPORT_DIR."
